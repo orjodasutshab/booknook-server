@@ -119,6 +119,20 @@ app.patch("/books/:id", verifyToken, async (req, res, next) => {
     res.send({ modifiedCount: 1 });
   } catch (e) { next(e); }
 });
+
+// 5. DELETE /books/:id (owner only)
+app.delete("/books/:id", verifyToken, async (req, res, next) => {
+  try {
+    if (!validId(req.params.id)) return res.status(400).send({ message: "Invalid book id" });
+    const _id = new ObjectId(req.params.id);
+    const book = await books.findOne({ _id });
+    if (!book) return res.status(404).send({ message: "Book not found" });
+    if (book.addedBy.email !== req.user.email) return res.status(403).send({ message: "Forbidden" });
+    await books.deleteOne({ _id });
+    await borrows.deleteMany({ bookId: req.params.id });
+    res.send({ deletedCount: 1 });
+  } catch (e) { next(e); }
+});
 app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).send({ message: "Something went wrong on the server" });
