@@ -11,17 +11,25 @@ const CLIENT_URL = (process.env.CLIENT_URL || "http://localhost:3000").replace(/
 app.use(cors({ origin: CLIENT_URL, credentials: true }));
 app.use(express.json());
 
-const client = new MongoClient(process.env.MONGODB_URI);
+let client;
 const JWKS = createRemoteJWKSet(new URL(`${CLIENT_URL}/api/auth/jwks`));
 
 let books, borrows;
+// connect once and reuse (works both locally and on Vercel serverless)
 async function init() {
+  if (books) return;
+  if (!process.env.MONGODB_URI) throw new Error("MONGODB_URI is not set");
+  client = new MongoClient(process.env.MONGODB_URI);
   await client.connect();
   const db = client.db(process.env.DB_NAME || "booknook");
   books = db.collection("books");
   borrows = db.collection("borrows");
   console.log("MongoDB connected");
 }
+
+app.use(async (req, res, next) => {
+  try { await init(); next(); } catch (e) { next(e); }
+});
 
 // ---- JWT check (BetterAuth jwt plugin token) ----
 async function verifyToken(req, res, next) {
@@ -192,5 +200,8 @@ app.use((err, req, res, next) => {
   res.status(500).send({ message: "Something went wrong on the server" });
 });
 
-init().then(() => app.listen(PORT, () => console.log(`Server on ${PORT}`))).catch(console.error);
+// local: start the server. On Vercel the exported app is used as the handler.
+if (!process.env.VERCEL) {
+  init().then(() => app.listen(PORT, () => console.log(`Server on ${PORT}`))).catch(console.error);
+}
 module.exports = app;
