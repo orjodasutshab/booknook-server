@@ -166,6 +166,13 @@ app.post("/borrows", verifyToken, async (req, res, next) => {
     res.status(201).send(result);
   } catch (e) { next(e); }
 });
+
+// 7. GET /borrows (logged in user)
+app.get("/borrows", verifyToken, async (req, res, next) => {
+  try {
+    res.send(await borrows.find({ userEmail: req.user.email }).sort({ borrowDate: -1 }).toArray());
+  } catch (e) { next(e); }
+});
 app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).send({ message: "Something went wrong on the server" });
