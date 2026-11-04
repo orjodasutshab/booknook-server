@@ -74,6 +74,26 @@ app.get("/books/:id", async (req, res, next) => {
     res.send(book);
   } catch (e) { next(e); }
 });
+
+// 3. POST /books
+app.post("/books", verifyToken, async (req, res, next) => {
+  try {
+    const data = bookFields(req.body);
+    const total = parseInt(req.body.totalCopies);
+    if (!data.title || !data.author || !data.category || !data.image || !data.description || !(total >= 1)) {
+      return res.status(400).send({ message: "All fields are required (copies must be 1 or more)" });
+    }
+    const doc = {
+      ...data,
+      totalCopies: total,
+      availableCopies: total,
+      addedBy: { name: req.user.name, email: req.user.email },
+      createdAt: new Date(),
+    };
+    const result = await books.insertOne(doc);
+    res.status(201).send({ ...result, book: doc });
+  } catch (e) { next(e); }
+});
 app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).send({ message: "Something went wrong on the server" });
