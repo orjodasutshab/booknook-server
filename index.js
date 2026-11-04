@@ -22,6 +22,20 @@ async function init() {
   borrows = db.collection("borrows");
   console.log("MongoDB connected");
 }
+
+// ---- JWT check (BetterAuth jwt plugin token) ----
+async function verifyToken(req, res, next) {
+  try {
+    const header = req.headers.authorization || "";
+    const token = header.startsWith("Bearer ") ? header.slice(7) : null;
+    if (!token) return res.status(401).send({ message: "Unauthorized: token missing" });
+    const { payload } = await jwtVerify(token, JWKS);
+    req.user = { email: payload.email, name: payload.name, id: payload.id || payload.sub };
+    next();
+  } catch (e) {
+    res.status(401).send({ message: "Unauthorized: invalid token" });
+  }
+}
 app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).send({ message: "Something went wrong on the server" });
