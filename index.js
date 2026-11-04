@@ -173,6 +173,20 @@ app.get("/borrows", verifyToken, async (req, res, next) => {
     res.send(await borrows.find({ userEmail: req.user.email }).sort({ borrowDate: -1 }).toArray());
   } catch (e) { next(e); }
 });
+
+// 8. DELETE /borrows/:id (return book)
+app.delete("/borrows/:id", verifyToken, async (req, res, next) => {
+  try {
+    if (!validId(req.params.id)) return res.status(400).send({ message: "Invalid id" });
+    const borrow = await borrows.findOne({ _id: new ObjectId(req.params.id) });
+    if (!borrow) return res.status(404).send({ message: "Borrow record not found" });
+    if (borrow.userEmail !== req.user.email) return res.status(403).send({ message: "Forbidden" });
+    await borrows.deleteOne({ _id: borrow._id });
+    await books.updateOne({ _id: new ObjectId(borrow.bookId) }, { $inc: { availableCopies: 1 } });
+    res.send({ deletedCount: 1 });
+  } catch (e) { next(e); }
+});
+
 app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).send({ message: "Something went wrong on the server" });
