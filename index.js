@@ -94,6 +94,31 @@ app.post("/books", verifyToken, async (req, res, next) => {
     res.status(201).send({ ...result, book: doc });
   } catch (e) { next(e); }
 });
+
+// 4. PATCH /books/:id (owner only)
+app.patch("/books/:id", verifyToken, async (req, res, next) => {
+  try {
+    if (!validId(req.params.id)) return res.status(400).send({ message: "Invalid book id" });
+    const _id = new ObjectId(req.params.id);
+    const book = await books.findOne({ _id });
+    if (!book) return res.status(404).send({ message: "Book not found" });
+    if (book.addedBy.email !== req.user.email) return res.status(403).send({ message: "Forbidden" });
+
+    const data = bookFields({ ...book, ...req.body });
+    const update = { ...data };
+    if (req.body.totalCopies !== undefined) {
+      const total = parseInt(req.body.totalCopies);
+      const borrowed = book.totalCopies - book.availableCopies;
+      if (!(total >= borrowed && total >= 1)) {
+        return res.status(400).send({ message: `Total copies cannot be less than currently borrowed (${borrowed})` });
+      }
+      update.totalCopies = total;
+      update.availableCopies = total - borrowed;
+    }
+    await books.updateOne({ _id }, { $set: update });
+    res.send({ modifiedCount: 1 });
+  } catch (e) { next(e); }
+});
 app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).send({ message: "Something went wrong on the server" });
