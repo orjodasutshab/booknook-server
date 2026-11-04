@@ -36,6 +36,34 @@ async function verifyToken(req, res, next) {
     res.status(401).send({ message: "Unauthorized: invalid token" });
   }
 }
+
+const validId = (id) => ObjectId.isValid(id);
+const bookFields = (b) => ({
+  title: String(b.title || "").trim(),
+  author: String(b.author || "").trim(),
+  category: b.category,
+  image: b.image,
+  description: String(b.description || "").trim(),
+});
+
+app.get("/", (_, res) => res.send("BookNook server is running"));
+
+// 1. GET /books (public). ?limit=6&sort=latest ; ?mine=true (needs token)
+app.get("/books", async (req, res, next) => {
+  try {
+    const { limit, sort, mine } = req.query;
+    const run = async (filter = {}) => {
+      let cursor = books.find(filter);
+      if (sort === "latest" || mine === "true") cursor = cursor.sort({ createdAt: -1 });
+      if (limit) cursor = cursor.limit(Math.min(parseInt(limit) || 0, 100));
+      res.send(await cursor.toArray());
+    };
+    if (mine === "true") {
+      return verifyToken(req, res, () => run({ "addedBy.email": req.user.email }).catch(next));
+    }
+    await run();
+  } catch (e) { next(e); }
+});
 app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).send({ message: "Something went wrong on the server" });
