@@ -133,6 +133,39 @@ app.delete("/books/:id", verifyToken, async (req, res, next) => {
     res.send({ deletedCount: 1 });
   } catch (e) { next(e); }
 });
+
+// 6. POST /borrows
+app.post("/borrows", verifyToken, async (req, res, next) => {
+  try {
+    const { bookId, returnDate } = req.body;
+    if (!validId(bookId)) return res.status(400).send({ message: "Invalid book id" });
+    const rd = new Date(returnDate);
+    if (!returnDate || isNaN(rd) || rd <= new Date()) {
+      return res.status(400).send({ message: "Please choose a valid future return date" });
+    }
+    const existing = await borrows.findOne({ bookId, userEmail: req.user.email });
+    if (existing) return res.status(409).send({ message: "You have already borrowed this book" });
+
+    const updated = await books.findOneAndUpdate(
+      { _id: new ObjectId(bookId), availableCopies: { $gt: 0 } },
+      { $inc: { availableCopies: -1 } },
+      { returnDocument: "after" }
+    );
+    if (!updated) return res.status(409).send({ message: "This book is not available right now" });
+
+    const doc = {
+      bookId,
+      bookTitle: updated.title,
+      bookImage: updated.image,
+      userName: req.user.name,
+      userEmail: req.user.email,
+      borrowDate: new Date(),
+      returnDate: rd,
+    };
+    const result = await borrows.insertOne(doc);
+    res.status(201).send(result);
+  } catch (e) { next(e); }
+});
 app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).send({ message: "Something went wrong on the server" });
