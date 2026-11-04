@@ -64,6 +64,16 @@ app.get("/books", async (req, res, next) => {
     await run();
   } catch (e) { next(e); }
 });
+
+// 2. GET /books/:id
+app.get("/books/:id", async (req, res, next) => {
+  try {
+    if (!validId(req.params.id)) return res.status(400).send({ message: "Invalid book id" });
+    const book = await books.findOne({ _id: new ObjectId(req.params.id) });
+    if (!book) return res.status(404).send({ message: "Book not found" });
+    res.send(book);
+  } catch (e) { next(e); }
+});
 app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).send({ message: "Something went wrong on the server" });
