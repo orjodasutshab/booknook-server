@@ -8,7 +8,7 @@
 
 <br/>
 
-### 🌐 Live API: [https://booknook-server-omega.vercel.app](https://booknook-server-omega.vercel.app)
+### 🌐 Live API: [https://booknookserverbd.vercel.app](https://booknookserverbd.vercel.app)
 
 <br/>
 
@@ -29,6 +29,8 @@ This is the backend of **BookNook**, a small online library where users add, bor
 Login tokens are issued by BetterAuth on the Next.js client. This server checks every protected request by verifying the token against the client's **JWKS endpoint** using `jose`.
 
 🔗 **Client repository:** [orjodasutshab/BookNook](https://github.com/orjodasutshab/BookNook)
+
+🌐 **Live website:** [https://booknook-bd.vercel.app](https://booknook-bd.vercel.app)
 
 ---
 
