@@ -27,10 +27,29 @@ const list = [
   ["Harry Potter and the Philosopher's Stone", "J.K. Rowling", "Kids", 5, "A boy finds out he is a wizard and starts school at Hogwarts.", "b45309"],
   ["The Little Prince", "Antoine de Saint-Exupéry", "Kids", 4, "A gentle tale about a prince who travels from planet to planet.", "0369a1"],
   ["Atomic Habits", "James Clear", "Others", 5, "Small daily habits that lead to remarkable long-term results.", "ea580c"],
+  // 7 extra books (replace the ones that already existed in your DB)
+  ["Gitanjali", "Rabindranath Tagore", "Others", 3, "Nobel Prize winning collection of poems full of devotion and beauty.", "0f766e"],
+  ["Agnibina", "Kazi Nazrul Islam", "Others", 3, "A fiery collection of poems from the rebel poet of Bengal.", "b91c1c"],
+  ["Pride and Prejudice", "Jane Austen", "Fiction", 4, "Elizabeth Bennet and Mr Darcy in a witty story of love and manners.", "9d174d"],
+  ["The Great Gatsby", "F. Scott Fitzgerald", "Fiction", 3, "A story of wealth, love and the American dream in the 1920s.", "1d4ed8"],
+  ["The Hobbit", "J.R.R. Tolkien", "Kids", 4, "Bilbo Baggins leaves his quiet home for a dragon-guarded adventure.", "15803d"],
+  ["Rich Dad Poor Dad", "Robert Kiyosaki", "Others", 4, "Simple lessons about money and how the rich think differently.", "a16207"],
+  ["Himu Series", "Humayun Ahmed", "Fiction", 3, "The famous barefoot wanderer Himu in stories loved by every generation.", "6d28d9"],
 ];
 
 const cover = (t, c) =>
   `https://placehold.co/400x600/${c}/ffffff/png?font=playfair-display&text=${encodeURIComponent(t.replace(/(.{1,14})(\s|$)/g, "$1\n").trim())}`;
+
+// Real cover from Open Library (falls back to the coloured placeholder)
+async function realCover(title, author) {
+  try {
+    const url = `https://openlibrary.org/search.json?title=${encodeURIComponent(title)}&author=${encodeURIComponent(author)}&limit=1&fields=cover_i`;
+    const r = await fetch(url);
+    const j = await r.json();
+    const id = j.docs && j.docs[0] && j.docs[0].cover_i;
+    return id ? `https://covers.openlibrary.org/b/id/${id}-L.jpg` : null;
+  } catch { return null; }
+}
 
 (async () => {
   if (!process.env.MONGODB_URI) throw new Error("MONGODB_URI is not set");
@@ -41,10 +60,18 @@ const cover = (t, c) =>
   const docs = [];
   for (let i = 0; i < list.length; i++) {
     const [title, author, category, copies, description, colour] = list[i];
-    if (await col.findOne({ title })) { console.log("skip (exists):", title); continue; }
+    const found = await col.findOne({ title });
+    if (found) {
+      // upgrade old placeholder covers to real ones
+      if (String(found.image).includes("placehold.co")) {
+        const real = await realCover(title, author);
+        if (real) { await col.updateOne({ _id: found._id }, { $set: { image: real } }); console.log("cover updated:", title); }
+      } else console.log("skip (exists):", title);
+      continue;
+    }
     docs.push({
       title, author, category, description,
-      image: cover(title, colour),
+      image: (await realCover(title, author)) || cover(title, colour),
       totalCopies: copies, availableCopies: copies,
       addedBy: OWNER,
       createdAt: new Date(now - (list.length - i) * 60000),
